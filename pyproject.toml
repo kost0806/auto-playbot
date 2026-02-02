@@ -1,0 +1,9 @@
+[project]
+name = "pythonproject1"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.13"
+dependencies = [
+    "pyautogui>=0.9.54",
+    "pywin32>=311",
+]
