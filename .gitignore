@@ -1,0 +1,18 @@
+/.claude/
+**/*.log
+**/*.txt
+.idea
+.env
+
+# Python-specific ignores
+__pycache__/
+.venv/
+.pytest_cache/
+*.egg-info/
+*.pyc
+*.pyo
+*.pyd
+dist/
+build/
+.Python
+uv.lock

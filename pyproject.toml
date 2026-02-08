@@ -1,9 +1,12 @@
 [project]
-name = "pythonproject1"
+name = "auto-playbot"
 version = "0.1.0"
-description = "Add your description here"
+description = "Game automation bot with Slack integration"
 requires-python = ">=3.13"
 dependencies = [
     "pyautogui>=0.9.54",
     "pywin32>=311",
+    "pyyaml>=6.0",
+    "slack-sdk>=3.33.0",
+    "python-dotenv>=1.0.0",
 ]
