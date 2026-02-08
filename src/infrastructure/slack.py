@@ -43,56 +43,23 @@ class SlackBot:
     def _handle_message(self, client: SocketModeClient,
                        req: SocketModeRequest):
         """메시지 처리"""
-        import json
-
-        print(f"\n{'='*80}")
-        print(f"📨 Slack 이벤트 수신!")
-        print(f"{'='*80}")
-        print(f"[DEBUG] Received request type: {req.type}")
-
-        # 전체 Payload 출력 (디버깅용)
-        print(f"\n[DEBUG] 전체 Payload:")
-        try:
-            payload_json = json.dumps(req.payload, indent=2, ensure_ascii=False)
-            print(payload_json)
-        except Exception as e:
-            print(f"JSON 변환 실패: {e}")
-            print(req.payload)
-
         if req.type == "events_api":
             response = SocketModeResponse(envelope_id=req.envelope_id)
             client.send_socket_mode_response(response)
 
             event = req.payload.get("event", {})
-            print(f"\n[DEBUG] Event 상세:")
-            print(f"  - type: {event.get('type')}")
-            print(f"  - subtype: {event.get('subtype')}")
-            print(f"  - channel: {event.get('channel')}")
-            print(f"  - user: {event.get('user')}")
-            print(f"  - text: {event.get('text', '')}")
-            print(f"  - ts: {event.get('ts')}")
-            print(f"  - bot_id: {event.get('bot_id')}")
-            print(f"  - bot_profile: {event.get('bot_profile')}")
-
-            print(f"\n[DEBUG] Event의 모든 필드:")
-            for key, value in event.items():
-                print(f"  - {key}: {value}")
-            print(f"{'='*80}\n")
 
             # 봇 자신의 메시지 무시 (bot_id 또는 bot_profile 확인)
             if event.get("bot_id") or event.get("bot_profile"):
-                print("[DEBUG] Ignoring bot message")
                 return
 
             # 메시지 타입 확인
             if event.get("type") != "message":
-                print(f"[DEBUG] Not a message event: {event.get('type')}")
                 return
 
             # 채널 확인 (설정된 채널에서만 명령 수신)
             event_channel = event.get("channel", "")
             if event_channel != self.channel:
-                print(f"[DEBUG] Message from different channel: {event_channel} (expected: {self.channel})")
                 return
 
             # subtype이 없거나 특정 subtype만 허용
@@ -100,24 +67,17 @@ class SlackBot:
             allowed_subtypes = [None, "thread_broadcast"]
             subtype = event.get("subtype")
             if subtype not in allowed_subtypes:
-                print(f"[DEBUG] Ignoring message with subtype: {subtype}")
                 return
 
             text = event.get("text", "").strip()
-            print(f"[DEBUG] Message received: '{text}'")
 
             if text.startswith("!"):
-                print(f"[DEBUG] Command detected: '{text}'")
                 if self.command_handler:
                     threading.Thread(
                         target=self.command_handler,
                         args=(text,),
                         daemon=True
                     ).start()
-                else:
-                    print("[DEBUG] No command handler set!")
-            else:
-                print(f"[DEBUG] Not a command (doesn't start with '!')")
 
     def send_message(self, text: str):
         """Slack 메시지 전송"""

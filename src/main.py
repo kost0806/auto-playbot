@@ -3,7 +3,7 @@ import time
 from domain.state import GameState, ChatbotState
 from domain.strategy.base import MacroMode
 from domain.strategy.strategies import (
-    SpecialWeaponFarming, SafeFarming, AggressiveFarming
+    SpecialWeaponFarming, TargetEnforcementStrategy,
 )
 from infrastructure.parser import ChatParser
 from infrastructure.automation import GameAutomation
@@ -27,7 +27,7 @@ class GameBot:
         self.state: GameState = None
         self.prev_state: GameState = None
         self.running = False
-        self.paused = False
+        self.paused = True  # 시작 시 idle 모드
 
         # Slack 명령 핸들러 등록
         self.slack.set_command_handler(self._handle_slack_command)
@@ -40,15 +40,51 @@ class GameBot:
         """판매"""
         self.automation.send_command("판매")
 
+    def _show_help(self):
+        """도움말 표시"""
+        help_text = (
+            "📚 *GameBot 명령어 목록*\n\n"
+            "*봇 제어*\n"
+            "• `!시작` - 봇 시작/재개\n"
+            "• `!중단` - 봇 일시 중단\n"
+            "• `!종료` - 봇 종료\n\n"
+            "*강화 관리*\n"
+            "• `!강화 [레벨]` - 목표 강화 레벨 설정\n"
+            "  예: `!강화 10` → +10 목표\n\n"
+            "*전략 변경*\n"
+            "• `!전략 [이름]` - 파밍 전략 변경\n"
+            "  예: `!전략 special`\n"
+            "  사용 가능: special, safe, aggressive\n\n"
+            "*상태 조회*\n"
+            "• `!상태` - 현재 게임 상태 조회\n"
+            "• `!도움` - 이 도움말 표시\n"
+        )
+        self.slack.send_message(help_text)
+
     def _handle_slack_command(self, command: str):
         """Slack 명령 처리"""
-        print(f"[DEBUG] _handle_slack_command called with: '{command}'")
         try:
             parts = command.strip().split()
             cmd = parts[0][1:]  # Remove '!'
-            print(f"[DEBUG] Parsed command: '{cmd}', parts: {parts}")
 
-            if cmd == "강화" and len(parts) > 1:
+            if cmd == "도움" or cmd == "help":
+                self._show_help()
+
+            elif cmd == "시작" or cmd == "재개":
+                if self.paused:
+                    self.resume()
+                    self.slack.send_message("▶️ 봇 시작/재개")
+                else:
+                    self.slack.send_message("ℹ️ 이미 실행 중입니다")
+
+            elif cmd == "중단":
+                if not self.paused:
+                    self.pause()
+                    self.slack.send_message("⏸️ 봇 중단")
+                else:
+                    self.slack.send_message("ℹ️ 이미 중단된 상태입니다")
+
+            elif cmd == "강화" and len(parts) > 1:
                 target = int(parts[1])
                 if hasattr(self.strategy, 'config'):
                     self.strategy.config['target_level'] = target
@@ -56,10 +92,6 @@ class GameBot:
                 if self.paused:
                     self.paused = False
                     self.slack.send_message("▶️ 강화 재개")
-
-            elif cmd == "중단":
-                self.paused = True
-                self.slack.send_message("⏸️ 강화 중단")
 
             elif cmd == "전략" and len(parts) > 1:
                 self._change_strategy(parts[1])
@@ -72,20 +104,40 @@ class GameBot:
 
             elif cmd == "종료":
                 self.slack.send_message("👋 봇 종료 중...")
-                self.running = False
+                self.stop()
 
             else:
                 self.slack.send_message(
-                    "❓ 사용법:\n"
-                    "!강화 [레벨] - 목표 설정\n"
-                    "!중단 - 일시 중단\n"
-                    "!전략 [이름] - 전략 변경\n"
-                    "!상태 - 상태 조회\n"
-                    "!종료 - 봇 종료"
+                    f"❓ 알 수 없는 명령: `{command}`\n"
+                    "`!도움` 명령으로 사용 가능한 명령을 확인하세요."
                 )
 
         except Exception as e:
             self.slack.send_message(f"⚠️ 오류: {e}")
+
+    def pause(self):
+        """일시 정지"""
+        if not self.paused:
+            self.paused = True
+            print("[INFO] Bot paused")
+        else:
+            print("[INFO] Bot is already paused")
+
+    def resume(self):
+        """재개"""
+        if self.paused:
+            self.paused = False
+            print("[INFO] Bot resumed")
+        else:
+            print("[INFO] Bot is already running")
+
+    def stop(self):
+        """매크로 종료"""
+        if self.running:
+            self.running = False
+            print("[INFO] Stop requested - shutting down...")
+        else:
+            print("[INFO] Bot is not running")
 
     def _change_strategy(self, name: str):
         """전략 변경"""
@@ -93,12 +145,7 @@ class GameBot:
             'special': SpecialWeaponFarming(
                 self.config['strategies']['special_farming']
             ),
-            'safe': SafeFarming(
-                self.config['strategies']['safe_farming']
-            ),
-            'aggressive': AggressiveFarming(
-                self.config['strategies']['aggressive_farming']
-            )
+            'target': TargetEnforcementStrategy(self.config['strategies']['target']),
         }
 
         if name in strategies:
@@ -138,7 +185,12 @@ class GameBot:
         """메인 루프"""
         self.running = True
         self.slack.start()
-        self.slack.send_message("🤖 GameBot 시작!")
+        self.slack.send_message(
+            "🤖 GameBot 준비 완료!\n"
+            "⏸️ Idle 모드로 대기 중입니다.\n"
+            "`!시작` 명령으로 봇을 시작하세요.\n"
+            "`!도움` 명령으로 사용 가능한 명령을 확인할 수 있습니다."
+        )
 
         try:
             while self.running:

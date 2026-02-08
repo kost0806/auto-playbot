@@ -23,13 +23,14 @@ class ChatParser:
     def parse(self, text: str) -> GameState:
         """텍스트 → GameState"""
         chats = self._split_chats(text)
+        last_chat = chats[-1]
         bot_chats = [c for c in chats[-3:] if '[플레이봇]' in c]
         combined = '\n'.join(bot_chats)
 
         return GameState(
             gold=self._extract_gold(combined),
             weapon=self._extract_weapon(combined),
-            bot_state=self._extract_state(combined)
+            bot_state=self._extract_state(last_chat, combined)
         )
 
     def _split_chats(self, text: str) -> list:
@@ -102,7 +103,9 @@ class ChatParser:
                 return True
         return False
 
-    def _extract_state(self, text: str) -> ChatbotState:
+    def _extract_state(self, last_chat: str,  text: str) -> ChatbotState:
+        if not last_chat.startswith('[플레이봇]'):
+            return ChatbotState.PROCESSING
         """챗봇 상태 추출"""
         if self.SELL.search(text):
             return ChatbotState.SELL

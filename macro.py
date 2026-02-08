@@ -9,7 +9,7 @@ import pyautogui
 import win32clipboard
 from adodbapi.process_connect_string import process
 
-debug = True
+debug = False
 
 
 def log(msg):

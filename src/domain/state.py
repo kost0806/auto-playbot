@@ -10,6 +10,7 @@ class ChatbotState(Enum):
     REMAINED = "유지"
     SELL = "판매"
     IDLE = "대기"
+    PROCESSING = "수행중"
 
 
 @dataclass

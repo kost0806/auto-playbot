@@ -1,4 +1,7 @@
 """구체적 전략 구현"""
+from datetime import datetime, timedelta
+
+from domain.state import ChatbotState
 from domain.strategy.base import MacroMode
 
 
@@ -26,30 +29,26 @@ class SpecialWeaponFarming(MacroMode):
             gamebot.enforce()
 
 
-class SafeFarming(MacroMode):
-    """안전 파밍 전략 - 150% 안전 마진"""
+class TargetEnforcementStrategy(MacroMode):
 
-    def do_step(self, gamebot):
-        state = gamebot.state
-        safe_money = self.config['safe_money'][state.weapon.level] * 1.5
-
-        if state.gold < safe_money:
-            gamebot.sell()
-        elif state.weapon.level >= self.config['target_level']:
-            gamebot.sell()
-        else:
-            gamebot.enforce()
-
-
-class AggressiveFarming(MacroMode):
-    """공격적 파밍 전략 - 최소 골드만 유지"""
+    def __init__(self, config: dict):
+        super().__init__(config)
+        self.last_executed = datetime.now()
 
     def do_step(self, gamebot):
         state = gamebot.state
 
-        if state.gold < self.config['min_gold']:
-            gamebot.sell()
-        elif state.weapon.level >= self.config['max_level']:
-            gamebot.sell()
-        else:
-            gamebot.enforce()
+        if state.bot_state == ChatbotState.PROCESSING and self.last_executed < (datetime.now() - timedelta(minutes=2)):
+            return
+
+        self.last_executed = datetime.now()
+
+        if state.gold < self.config['required_money_per_level'][state.weapon.level]:
+            gamebot.stop()
+            return
+
+        if state.weapon.level >= self.config['target_level']:
+            gamebot.pause()
+            return
+
+        gamebot.enforce()
